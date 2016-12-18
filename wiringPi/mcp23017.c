@@ -23,6 +23,7 @@
  */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <pthread.h>
 
 #include "wiringPi.h"
@@ -31,6 +32,101 @@
 
 #include "mcp23017.h"
 
+#define bitRead(value, bit) (((value) >> (bit)) & 0x01)
+#define bitSet(value, bit) ((value) |= (1UL << (bit)))
+#define bitClear(value, bit) ((value) &= ~(1UL << (bit)))
+#define bitWrite(value, bit, bitvalue) (bitvalue ? bitSet(value, bit) : bitClear(value, bit))
+
+static int fdDev = 0;
+
+/**
+ * Register address, port dependent, for a given PIN
+ */
+static uint8_t regForPin(uint8_t pin, uint8_t portAaddr, uint8_t portBaddr){
+  return(pin<8) ?portAaddr:portBaddr;
+}
+
+/**
+ * Helper to update a single bit of an A/B register.
+ * - Reads the current register value
+ * - Writes the new register value
+ */
+static void updateRegisterBit(uint8_t pin, uint8_t pValue, uint8_t portAaddr, uint8_t portBaddr) {
+  uint8_t regValue;
+  uint8_t regAddr=regForPin(pin,portAaddr,portBaddr);
+  regValue = wiringPiI2CReadReg8 (fdDev, regAddr);
+
+  // set or clear the value for the particular bit
+  bitWrite(regValue,pin%8,pValue);
+
+  wiringPiI2CWriteReg8 (fdDev, regAddr, regValue) ;
+}
+
+/*
+ * myInterruptRead:
+ * pin should be passed in as the pinBase so we can get the node structure.
+ *********************************************************************************
+ */
+
+static int myInterruptRead (struct wiringPiNodeStruct *node, int *pin, int *value)
+{
+  uint8_t intX, i;
+
+  if ((node = wiringPiFindNode (*pin)) == NULL)
+    return -1;
+
+  *pin = -1;
+
+  // get which pin has the interrupt
+  // try port A
+  intX = wiringPiI2CReadReg8 (node->fd, MCP23x17_INTFA);
+  for(i=0;i<8;i++)
+    if (bitRead(intX,i))
+      *pin = i;
+
+  // try port B
+  if (*pin < 0) {
+      intX = wiringPiI2CReadReg8 (node->fd, MCP23x17_INTFB);
+      for(i=0;i<8;i++)
+        if (bitRead(intX,i))
+          *pin = i+8;
+  }
+
+  if (*pin < 0)
+    return -1;
+
+  // now get it's value
+  intX = regForPin(*pin,MCP23x17_INTCAPA,MCP23x17_INTCAPB);
+  *value = (wiringPiI2CReadReg8(node->fd, intX)>>(*pin%8)) & 1;
+
+  return 0;
+}
+
+
+/*
+ * myPinIntPolarity:
+ * Set's up a pin for interrupt. uses MODEs: INT_EDGE_FALLING, INT_EDGE_RISING, and INT_EDGE_BOTH
+ *
+ * Note that the interrupt condition finishes when you read the information about the port / value
+ * that caused the interrupt or you read the port itself. Check the datasheet as it can be confusing.
+ *
+ *********************************************************************************
+ */
+static void myPinIntPolarity (struct wiringPiNodeStruct *node, int pin, int mode)
+{
+  pin -= node->pinBase ;
+
+  // set the pin interrupt control
+  // 0 means change, 1 means compare against given value
+  updateRegisterBit(pin,(mode!=INT_EDGE_FALLING),MCP23x17_IOCON,MCP23x17_IOCONB);
+
+  // In a RISING interrupt the default value is 0, interrupt is triggered when the pin goes to 1.
+  // In a FALLING interrupt the default value is 1, interrupt is triggered when pin goes to 0.
+  updateRegisterBit(pin,(mode==INT_EDGE_FALLING),MCP23x17_DEFVALA,MCP23x17_DEFVALB);
+
+  // enable the pin for interrupt
+  updateRegisterBit(pin,HIGH,MCP23x17_GPINTENA,MCP23x17_GPINTENB);
+}
 
 /*
  * myPinMode:
@@ -39,27 +135,9 @@
 
 static void myPinMode (struct wiringPiNodeStruct *node, int pin, int mode)
 {
-  int mask, old, reg ;
-
   pin -= node->pinBase ;
 
-  if (pin < 8)		// Bank A
-    reg  = MCP23x17_IODIRA ;
-  else
-  {
-    reg  = MCP23x17_IODIRB ;
-    pin &= 0x07 ;
-  }
-
-  mask = 1 << pin ;
-  old  = wiringPiI2CReadReg8 (node->fd, reg) ;
-
-  if (mode == OUTPUT)
-    old &= (~mask) ;
-  else
-    old |=   mask ;
-
-  wiringPiI2CWriteReg8 (node->fd, reg, old) ;
+  updateRegisterBit(pin,(mode==INPUT),MCP23x17_IODIRA,MCP23x17_IODIRB);
 }
 
 
@@ -70,27 +148,9 @@ static void myPinMode (struct wiringPiNodeStruct *node, int pin, int mode)
 
 static void myPullUpDnControl (struct wiringPiNodeStruct *node, int pin, int mode)
 {
-  int mask, old, reg ;
-
   pin -= node->pinBase ;
 
-  if (pin < 8)		// Bank A
-    reg  = MCP23x17_GPPUA ;
-  else
-  {
-    reg  = MCP23x17_GPPUB ;
-    pin &= 0x07 ;
-  }
-
-  mask = 1 << pin ;
-  old  = wiringPiI2CReadReg8 (node->fd, reg) ;
-
-  if (mode == PUD_UP)
-    old |=   mask ;
-  else
-    old &= (~mask) ;
-
-  wiringPiI2CWriteReg8 (node->fd, reg, old) ;
+  updateRegisterBit(pin,(mode==PUD_UP),MCP23x17_GPPUA,MCP23x17_GPPUB);
 }
 
 
@@ -101,36 +161,9 @@ static void myPullUpDnControl (struct wiringPiNodeStruct *node, int pin, int mod
 
 static void myDigitalWrite (struct wiringPiNodeStruct *node, int pin, int value)
 {
-  int bit, old ;
-
   pin -= node->pinBase ;	// Pin now 0-15
 
-  bit = 1 << (pin & 7) ;
-
-  if (pin < 8)			// Bank A
-  {
-    old = node->data2 ;
-
-    if (value == LOW)
-      old &= (~bit) ;
-    else
-      old |=   bit ;
-
-    wiringPiI2CWriteReg8 (node->fd, MCP23x17_GPIOA, old) ;
-    node->data2 = old ;
-  }
-  else				// Bank B
-  {
-    old = node->data3 ;
-
-    if (value == LOW)
-      old &= (~bit) ;
-    else
-      old |=   bit ;
-
-    wiringPiI2CWriteReg8 (node->fd, MCP23x17_GPIOB, old) ;
-    node->data3 = old ;
-  }
+  updateRegisterBit(pin,(value==HIGH),MCP23x17_GPIOA,MCP23x17_GPIOB);
 }
 
 
@@ -141,25 +174,12 @@ static void myDigitalWrite (struct wiringPiNodeStruct *node, int pin, int value)
 
 static int myDigitalRead (struct wiringPiNodeStruct *node, int pin)
 {
-  int mask, value, gpio ;
+  uint8_t regAddr;
 
   pin -= node->pinBase ;
 
-  if (pin < 8)		// Bank A
-    gpio  = MCP23x17_GPIOA ;
-  else
-  {
-    gpio  = MCP23x17_GPIOB ;
-    pin  &= 0x07 ;
-  }
-
-  mask  = 1 << pin ;
-  value = wiringPiI2CReadReg8 (node->fd, gpio) ;
-
-  if ((value & mask) == 0)
-    return LOW ;
-  else 
-    return HIGH ;
+  regAddr=regForPin(pin,MCP23x17_GPIOA,MCP23x17_GPIOB);
+  return (wiringPiI2CReadReg8 (node->fd, regAddr) >> (pin%8)) & 1;
 }
 
 
@@ -179,17 +199,55 @@ int mcp23017Setup (const int pinBase, const int i2cAddress)
   if ((fd = wiringPiI2CSetup (i2cAddress)) < 0)
     return fd ;
 
+  fdDev = fd;
+
   wiringPiI2CWriteReg8 (fd, MCP23x17_IOCON, IOCON_INIT) ;
 
   node = wiringPiNewNode (pinBase, 16) ;
 
   node->fd              = fd ;
   node->pinMode         = myPinMode ;
+  node->pinIntPolarity  = myPinIntPolarity ;
   node->pullUpDnControl = myPullUpDnControl ;
   node->digitalRead     = myDigitalRead ;
   node->digitalWrite    = myDigitalWrite ;
+  node->interruptRead   = myInterruptRead ;
   node->data2           = wiringPiI2CReadReg8 (fd, MCP23x17_OLATA) ;
   node->data3           = wiringPiI2CReadReg8 (fd, MCP23x17_OLATB) ;
 
   return 0 ;
+}
+
+/*
+ * mcp23017SetupInts:
+ * Configures the interrupt system. both port A and B are assigned the same configuration.
+ * Mirroring will OR both INTA and INTB pins.
+ * Opendrain will set the INT pin to value or open drain.
+ * polarity will set LOW or HIGH on interrupt.
+ * Default values after Power On Reset are: (false,false, LOW)
+ *
+ *********************************************************************************
+ */
+
+int mcp23017SetupInts (int pinBase, uint8_t mirroring, uint8_t openDrain, uint8_t polarity) {
+  uint8_t ioconfValue;
+  struct wiringPiNodeStruct *node;
+
+  if ((node = wiringPiFindNode (pinBase)) == NULL)
+    return -1;
+        
+  // configure the port A
+  ioconfValue = wiringPiI2CReadReg8 (node->fd, MCP23x17_IOCON);
+  bitWrite(ioconfValue,6,mirroring);
+  bitWrite(ioconfValue,2,openDrain);
+  bitWrite(ioconfValue,1,polarity);
+  wiringPiI2CWriteReg8 (node->fd, MCP23x17_IOCON,ioconfValue);
+
+  // Configure the port B
+  ioconfValue = wiringPiI2CReadReg8 (node->fd, MCP23x17_IOCONB);
+  bitWrite(ioconfValue,6,mirroring);
+  bitWrite(ioconfValue,2,openDrain);
+  bitWrite(ioconfValue,1,polarity);
+  wiringPiI2CWriteReg8 (node->fd, MCP23x17_IOCONB,ioconfValue);
+  return 0;
 }

@@ -129,12 +129,14 @@ struct wiringPiNodeStruct
   unsigned int data3 ;	//  ditto
 
   void   (*pinMode)         (struct wiringPiNodeStruct *node, int pin, int mode) ;
+  void   (*pinIntPolarity)  (struct wiringPiNodeStruct *node, int pin, int mode) ;
   void   (*pullUpDnControl) (struct wiringPiNodeStruct *node, int pin, int mode) ;
   int    (*digitalRead)     (struct wiringPiNodeStruct *node, int pin) ;
   void   (*digitalWrite)    (struct wiringPiNodeStruct *node, int pin, int value) ;
   void   (*pwmWrite)        (struct wiringPiNodeStruct *node, int pin, int value) ;
   int    (*analogRead)      (struct wiringPiNodeStruct *node, int pin) ;
   void   (*analogWrite)     (struct wiringPiNodeStruct *node, int pin, int value) ;
+  int    (*interruptRead)   (struct wiringPiNodeStruct *node, int *pin, int *value) ;
 
   struct wiringPiNodeStruct *next ;
 } ;
@@ -171,12 +173,14 @@ extern int  wiringPiSetupPhys   (void) ;
 
 extern void pinModeAlt          (int pin, int mode) ;
 extern void pinMode             (int pin, int mode) ;
+extern void pinIntPolarity      (int pin, int mode) ;
 extern void pullUpDnControl     (int pin, int pud) ;
 extern int  digitalRead         (int pin) ;
 extern void digitalWrite        (int pin, int value) ;
 extern void pwmWrite            (int pin, int value) ;
 extern int  analogRead          (int pin) ;
 extern void analogWrite         (int pin, int value) ;
+extern int  interruptRead       (int *pin, int *value) ;
 
 // PiFace specifics 
 //	(Deprecated)

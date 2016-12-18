@@ -27,6 +27,7 @@ extern "C" {
 #endif
 
 extern int mcp23017Setup (const int pinBase, const int i2cAddress) ;
+extern int mcp23017SetupInts (int pinBase, uint8_t mirroring, uint8_t openDrain, uint8_t polarity) ;
 
 #ifdef __cplusplus
 }

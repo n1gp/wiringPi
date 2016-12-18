@@ -1733,12 +1733,14 @@ struct wiringPiNodeStruct *wiringPiFindNode (int pin)
  */
 
 static void pinModeDummy             (struct wiringPiNodeStruct *node, int pin, int mode)  { return ; }
+static void pinIntPolarityDummy      (struct wiringPiNodeStruct *node, int pin, int mode)  { return ; }
 static void pullUpDnControlDummy     (struct wiringPiNodeStruct *node, int pin, int pud)   { return ; }
 static int  digitalReadDummy         (struct wiringPiNodeStruct *node, int pin)            { return LOW ; }
 static void digitalWriteDummy        (struct wiringPiNodeStruct *node, int pin, int value) { return ; }
 static void pwmWriteDummy            (struct wiringPiNodeStruct *node, int pin, int value) { return ; }
 static int  analogReadDummy          (struct wiringPiNodeStruct *node, int pin)            { return 0 ; }
 static void analogWriteDummy         (struct wiringPiNodeStruct *node, int pin, int value) { return ; }
+static int  interruptReadDummy       (struct wiringPiNodeStruct *node, int *pin, int *value) { return 0 ; }
 
 struct wiringPiNodeStruct *wiringPiNewNode (int pinBase, int numPins)
 {
@@ -1773,12 +1775,14 @@ struct wiringPiNodeStruct *wiringPiNewNode (int pinBase, int numPins)
   node->pinBase         = pinBase ;
   node->pinMax          = pinBase + numPins - 1 ;
   node->pinMode         = pinModeDummy ;
+  node->pinIntPolarity  = pinIntPolarityDummy ;
   node->pullUpDnControl = pullUpDnControlDummy ;
   node->digitalRead     = digitalReadDummy ;
   node->digitalWrite    = digitalWriteDummy ;
   node->pwmWrite        = pwmWriteDummy ;
   node->analogRead      = analogReadDummy ;
   node->analogWrite     = analogWriteDummy ;
+  node->interruptRead   = interruptReadDummy ;
   node->next            = wiringPiNodes ;
   wiringPiNodes         = node ;
 
@@ -1977,6 +1981,24 @@ void pinMode (int pin, int mode)
   }
 }
 
+int interruptRead (int *pin, int *value)
+{
+  struct wiringPiNodeStruct *node = wiringPiNodes ;
+
+  if ((node = wiringPiFindNode (*pin)) != NULL)
+    return node->interruptRead (node, pin, value) ;
+  else
+    return -1;
+}
+
+void pinIntPolarity (int pin, int mode)
+{
+  struct wiringPiNodeStruct *node = wiringPiNodes ;
+
+  if ((node = wiringPiFindNode (pin)) != NULL)
+    node->pinIntPolarity (node, pin, mode) ;
+  return ;
+}
 
 /*
  * pullUpDownCtrl:
