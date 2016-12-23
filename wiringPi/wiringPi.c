@@ -1740,7 +1740,7 @@ static void digitalWriteDummy        (struct wiringPiNodeStruct *node, int pin, 
 static void pwmWriteDummy            (struct wiringPiNodeStruct *node, int pin, int value) { return ; }
 static int  analogReadDummy          (struct wiringPiNodeStruct *node, int pin)            { return 0 ; }
 static void analogWriteDummy         (struct wiringPiNodeStruct *node, int pin, int value) { return ; }
-static int  interruptReadDummy       (struct wiringPiNodeStruct *node, int *pin, int *value) { return 0 ; }
+static int  interruptReadDummy       (struct wiringPiNodeStruct *node, int *pins, int *values) { return 0 ; }
 
 struct wiringPiNodeStruct *wiringPiNewNode (int pinBase, int numPins)
 {
@@ -1981,12 +1981,12 @@ void pinMode (int pin, int mode)
   }
 }
 
-int interruptRead (int *pin, int *value)
+int interruptRead (int *pins, int *values)
 {
   struct wiringPiNodeStruct *node = wiringPiNodes ;
 
-  if ((node = wiringPiFindNode (*pin)) != NULL)
-    return node->interruptRead (node, pin, value) ;
+  if ((node = wiringPiFindNode (*pins)) != NULL)
+    return node->interruptRead (node, pins, values) ;
   else
     return -1;
 }

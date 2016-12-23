@@ -64,40 +64,25 @@ static void updateRegisterBit(uint8_t pin, uint8_t pValue, uint8_t portAaddr, ui
 
 /*
  * myInterruptRead:
- * pin should be passed in as the pinBase so we can get the node structure.
+ * pinBase should be passed in via pins so we can get the node structure.
  *********************************************************************************
  */
 
-static int myInterruptRead (struct wiringPiNodeStruct *node, int *pin, int *value)
+static int myInterruptRead (struct wiringPiNodeStruct *node, int *pins, int *values)
 {
-  uint8_t intX, i;
-
-  if ((node = wiringPiFindNode (*pin)) == NULL)
+  if ((node = wiringPiFindNode (*pins)) == NULL)
     return -1;
 
-  *pin = -1;
+  *pins = 0;
 
-  // get which pin has the interrupt
+  // get which pins have an interrupt
   // try port A
-  intX = wiringPiI2CReadReg8 (node->fd, MCP23x17_INTFA);
-  for(i=0;i<8;i++)
-    if (bitRead(intX,i))
-      *pin = i;
+  *pins = wiringPiI2CReadReg8 (node->fd, MCP23x17_INTFA);
+  *values = wiringPiI2CReadReg8(node->fd, MCP23x17_INTCAPA);
 
   // try port B
-  if (*pin < 0) {
-      intX = wiringPiI2CReadReg8 (node->fd, MCP23x17_INTFB);
-      for(i=0;i<8;i++)
-        if (bitRead(intX,i))
-          *pin = i+8;
-  }
-
-  if (*pin < 0)
-    return -1;
-
-  // now get it's value
-  intX = regForPin(*pin,MCP23x17_INTCAPA,MCP23x17_INTCAPB);
-  *value = (wiringPiI2CReadReg8(node->fd, intX)>>(*pin%8)) & 1;
+  *pins |= (wiringPiI2CReadReg8 (node->fd, MCP23x17_INTFB)) << 8;
+  *values |= wiringPiI2CReadReg8(node->fd, MCP23x17_INTCAPB) << 8;
 
   return 0;
 }

@@ -136,7 +136,7 @@ struct wiringPiNodeStruct
   void   (*pwmWrite)        (struct wiringPiNodeStruct *node, int pin, int value) ;
   int    (*analogRead)      (struct wiringPiNodeStruct *node, int pin) ;
   void   (*analogWrite)     (struct wiringPiNodeStruct *node, int pin, int value) ;
-  int    (*interruptRead)   (struct wiringPiNodeStruct *node, int *pin, int *value) ;
+  int    (*interruptRead)   (struct wiringPiNodeStruct *node, int *pins, int *values) ;
 
   struct wiringPiNodeStruct *next ;
 } ;
@@ -180,7 +180,7 @@ extern void digitalWrite        (int pin, int value) ;
 extern void pwmWrite            (int pin, int value) ;
 extern int  analogRead          (int pin) ;
 extern void analogWrite         (int pin, int value) ;
-extern int  interruptRead       (int *pin, int *value) ;
+extern int  interruptRead       (int *pins, int *values) ;
 
 // PiFace specifics 
 //	(Deprecated)
