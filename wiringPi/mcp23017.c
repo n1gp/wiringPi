@@ -186,6 +186,22 @@ int mcp23017Setup (const int pinBase, const int i2cAddress)
 
   fdDev = fd;
 
+  // set defaults
+  wiringPiI2CWriteReg8 (fd, MCP23x17_IODIRA, 0xFF) ;
+  wiringPiI2CWriteReg8 (fd, MCP23x17_IODIRB, 0xFF) ;
+  wiringPiI2CWriteReg8 (fd, MCP23x17_GPPUA, 0) ;
+  wiringPiI2CWriteReg8 (fd, MCP23x17_GPPUB, 0) ;
+  wiringPiI2CWriteReg8 (fd, MCP23x17_IOCON, 0) ;
+  wiringPiI2CWriteReg8 (fd, MCP23x17_GPINTENA, 0);
+  wiringPiI2CWriteReg8 (fd, MCP23x17_GPINTENB, 0);
+  wiringPiI2CWriteReg8 (fd, MCP23x17_INTCONA, 0);
+  wiringPiI2CWriteReg8 (fd, MCP23x17_INTCONB, 0);
+  wiringPiI2CWriteReg8 (fd, MCP23x17_DEFVALA, 0);
+  wiringPiI2CWriteReg8 (fd, MCP23x17_DEFVALB, 0);
+  // clear any interrupts that may be pending
+  wiringPiI2CReadReg8 (fd, MCP23x17_GPIOA);
+  wiringPiI2CReadReg8 (fd, MCP23x17_GPIOB);
+  
   wiringPiI2CWriteReg8 (fd, MCP23x17_IOCON, IOCON_INIT) ;
 
   node = wiringPiNewNode (pinBase, 16) ;

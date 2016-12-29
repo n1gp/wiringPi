@@ -19,7 +19,7 @@ void mcp23x17_interrupt(void) {
   int prev, values, pins = AF_BASE;
 
   interruptRead (&pins, &values);
-  prev = digitalRead(MCP23X17_INTA);
+//  prev = digitalRead(MCP23X17_INTA);
   printf("mcp23x17_interrupt() pins=%x values=%x prev=%x\n", pins, values, prev);
 }
 
@@ -58,7 +58,7 @@ int main (int argc, char *argv[])
   pinIntPolarity (AF_BUTTON3, INT_EDGE_BOTH) ;
 #endif
 
-  mcp23x17_interrupt();
+//  mcp23x17_interrupt();
 
   while (1) {
 #if 0
