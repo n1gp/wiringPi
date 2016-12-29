@@ -189,6 +189,8 @@ int mcp23017Setup (const int pinBase, const int i2cAddress)
   // set defaults
   wiringPiI2CWriteReg8 (fd, MCP23x17_IODIRA, 0xFF) ;
   wiringPiI2CWriteReg8 (fd, MCP23x17_IODIRB, 0xFF) ;
+  wiringPiI2CWriteReg8 (fd, MCP23x17_IPOLA, 0) ;
+  wiringPiI2CWriteReg8 (fd, MCP23x17_IPOLB, 0) ;
   wiringPiI2CWriteReg8 (fd, MCP23x17_GPPUA, 0) ;
   wiringPiI2CWriteReg8 (fd, MCP23x17_GPPUB, 0) ;
   wiringPiI2CWriteReg8 (fd, MCP23x17_IOCON, 0) ;
