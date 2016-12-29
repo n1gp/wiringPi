@@ -103,7 +103,7 @@ static void myPinIntPolarity (struct wiringPiNodeStruct *node, int pin, int mode
 
   // set the pin interrupt control
   // 0 means change, 1 means compare against given value
-  updateRegisterBit(pin,(mode!=INT_EDGE_FALLING),MCP23x17_IOCON,MCP23x17_IOCONB);
+  updateRegisterBit(pin,(mode!=INT_EDGE_BOTH),MCP23x17_INTCONA,MCP23x17_INTCONB);
 
   // In a RISING interrupt the default value is 0, interrupt is triggered when the pin goes to 1.
   // In a FALLING interrupt the default value is 1, interrupt is triggered when pin goes to 0.
@@ -187,13 +187,13 @@ int mcp23017Setup (const int pinBase, const int i2cAddress)
   fdDev = fd;
 
   // set defaults
+  wiringPiI2CWriteReg8 (fd, MCP23x17_IOCON, 0) ;
   wiringPiI2CWriteReg8 (fd, MCP23x17_IODIRA, 0xFF) ;
   wiringPiI2CWriteReg8 (fd, MCP23x17_IODIRB, 0xFF) ;
   wiringPiI2CWriteReg8 (fd, MCP23x17_IPOLA, 0) ;
   wiringPiI2CWriteReg8 (fd, MCP23x17_IPOLB, 0) ;
   wiringPiI2CWriteReg8 (fd, MCP23x17_GPPUA, 0) ;
   wiringPiI2CWriteReg8 (fd, MCP23x17_GPPUB, 0) ;
-  wiringPiI2CWriteReg8 (fd, MCP23x17_IOCON, 0) ;
   wiringPiI2CWriteReg8 (fd, MCP23x17_GPINTENA, 0);
   wiringPiI2CWriteReg8 (fd, MCP23x17_GPINTENB, 0);
   wiringPiI2CWriteReg8 (fd, MCP23x17_INTCONA, 0);

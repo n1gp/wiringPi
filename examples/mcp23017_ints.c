@@ -10,41 +10,34 @@
 #include <mcp23017.h>
 
 #define	AF_BASE		300
-#define	AF_BUTTON1	(AF_BASE + 0)
-#define	AF_BUTTON2	(AF_BASE + 2)
-#define	AF_BUTTON3	(AF_BASE + 10)
 #define	MCP23X17_INTA	0
 
 void mcp23x17_interrupt(void) {
-  int prev, values, pins = AF_BASE;
+  int values, pins = AF_BASE;
 
   interruptRead (&pins, &values);
-//  prev = digitalRead(MCP23X17_INTA);
-  printf("mcp23x17_interrupt() pins=%x values=%x prev=%x\n", pins, values, prev);
+  printf("mcp23x17_interrupt() pins=%x values=%x\n", pins, values);
 }
 
 int main (int argc, char *argv[])
 {
   int i;
+  char cmd[64];
   wiringPiSetup() ;
   mcp23017Setup (AF_BASE, 0x20) ;
 
-#if 1
   // 1 - OR'd AB ints, 0 - disable opendrain, LOW - active_low ints
-  if (mcp23017SetupInts (AF_BASE, 1, 0, LOW) < 0) {
+  if (mcp23017SetupInts (AF_BASE, 1, 1, LOW) < 0) {
     printf ("Unable to setup mcp23017SetupInts: %s\n", strerror (errno));
     return -1;
   }
-#endif
 
-  pinMode (AF_BUTTON1, INPUT) ;
-  pinMode (AF_BUTTON2, INPUT) ;
-  pinMode (AF_BUTTON3, INPUT) ;
-  pullUpDnControl (AF_BUTTON1, PUD_UP);
-  pullUpDnControl (AF_BUTTON2, PUD_UP);
-  pullUpDnControl (AF_BUTTON3, PUD_UP);
+  for(i=0; i<16; i++) {
+    pinMode (AF_BASE+i, INPUT) ;
+    pullUpDnControl (AF_BASE+i, PUD_UP);
+    pinIntPolarity (AF_BASE+i, INT_EDGE_BOTH) ;
+  }
 
-#if 1
   pinMode(MCP23X17_INTA, INPUT);
   pullUpDnControl(MCP23X17_INTA, PUD_UP);
 
@@ -53,26 +46,20 @@ int main (int argc, char *argv[])
     return -1;
   }
 
-  pinIntPolarity (AF_BUTTON1, INT_EDGE_BOTH) ;
-  pinIntPolarity (AF_BUTTON2, INT_EDGE_BOTH) ;
-  pinIntPolarity (AF_BUTTON3, INT_EDGE_BOTH) ;
-#endif
-
-//  mcp23x17_interrupt();
+  mcp23x17_interrupt();
 
   while (1) {
-#if 0
-    // digitalRead clears INTF registers!
-    if (digitalRead (AF_BUTTON) == LOW)	// Pushed
-    {
-      printf("RRK, LOW\n");
-    }
-    else
-    {
-      printf("RRK, HIGH\n");
-    }
+#if 1
+    if (++i > 7) i = 0;
+    printf("Trying i=%x\n", ~(1<<i)&0xff);
+    sprintf(cmd, "/usr/sbin/i2cset -y 1 0x20 0xc 0x%x", ~(1<<i)&0xff);
+    system(cmd);
+    sleep(16);
+    printf("NOW i=%x\n", 0xff);
+    sprintf(cmd, "/usr/sbin/i2cset -y 1 0x20 0xc 0x%x", 0xff);
+    system(cmd);
 #endif
-    sleep(1);
+    sleep(2);
   }
 
   return 0 ;
